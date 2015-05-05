@@ -3,7 +3,7 @@ class Sprite
   public:
   int width;
   int height;
-  uint8_t* data;
+  const uint8_t* data;
 };
 
 class SpriteInst
@@ -13,5 +13,6 @@ class SpriteInst
   int x = 0;
   int y = 0;
   bool enabled = false;
-  bool flip = false;
+  bool flipX = false;
+  bool flipY = false;
 };
