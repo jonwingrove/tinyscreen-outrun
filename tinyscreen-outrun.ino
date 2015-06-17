@@ -179,9 +179,9 @@ uint8_t s_darkGrey = 0x49;
 uint8_t s_lightGrey = 0xb6;
 float roadPos[8] = {0,1,0,-2,0,1,3,0};
 
-float getRoadPosAt(float playerPos)
+float getRoadPosAt(int playerPos)
 {
-  float normalisedPlayerPos = playerPos / 32;
+  float normalisedPlayerPos = playerPos / 255.0f;
   int lowerBound = floor(normalisedPlayerPos);
   int upperBound = floor(normalisedPlayerPos+1);
   float amt = normalisedPlayerPos - lowerBound;
@@ -189,12 +189,12 @@ float getRoadPosAt(float playerPos)
   return roadPos[lowerBound%8]*(1-amt) + roadPos[upperBound%8]*amt;
 }
 
-void drawRoadSection(uint8_t* lineBuffer, float distance, float playerPos, int width, float camPos)
+void drawRoadSection(uint8_t* lineBuffer, int distance, int playerPos, int width, float camPos)
 {
   float pos = playerPos + distance;
   memset(lineBuffer, s_groundGreen, 96);
   int pDist = (int)pos;
-  uint8_t col = pDist%2 == 0 ? s_darkGrey : s_lightGrey;
+  uint8_t col = (pDist>>4)%2 == 0 ? s_darkGrey : s_lightGrey;
   
   int ctr = (48+(40*getRoadPosAt(pos)))-(camPos*40);
   int left = min(max(ctr-width,0),95);
@@ -211,8 +211,10 @@ void doLine(uint8_t* lineBuffer, int lineIndex)
   }
   else  
   {
-    float pH = 1 - ((float)(lineIndex - 31))/32.0f;
-    float distance = (pH*pH) * 12;
+    //float pH = 1 - ((float)(lineIndex - 31))/32.0f;
+    int pH = 32 - (lineIndex - 31);
+    // divide by 32... >> 5, divide by 32*32 >> 10
+    int distance = (pH*pH) >> 2;
     int width = 8 + (lineIndex - 31);
     drawRoadSection(lineBuffer, distance, s_car.zPos, width, s_camPos); 
   }
@@ -251,7 +253,7 @@ void processScreen(int saveScreenshot)
         const Sprite* spriteType = sprites[index].sprite;
         int adjustedHeight = spriteType->height << sprites[index].scaleShift;
         int adjustedWidth = spriteType->width << sprites[index].scaleShift;
-        int yTop = sprites[index].y - (adjustedHeight / 2);
+        int yTop = sprites[index].y - (adjustedHeight >> 1);
         
         int curLine = lines - yTop;
         if ( curLine >= 0 && curLine < adjustedHeight )
@@ -260,7 +262,7 @@ void processScreen(int saveScreenshot)
           {
             curLine = (adjustedHeight-1)-curLine;
           }
-          int xLeft = sprites[index].x - (adjustedWidth / 2);
+          int xLeft = sprites[index].x - (adjustedWidth >> 1);
           int startX = max(-xLeft,0);
           for(int x = startX; x < adjustedWidth; ++x)
           {
@@ -316,14 +318,14 @@ int s_screenshotIndex = 0;
 void loop() {
   
   sprites[cloudSprite1].x--;
-  if ( sprites[cloudSprite1].x < -40 )
+  if ( sprites[cloudSprite1].x < -20 )
   {
-    sprites[cloudSprite1].x = 100;
+    sprites[cloudSprite1].x = 120;
   }
   sprites[cloudSprite2].x--;
-  if ( sprites[cloudSprite2].x < -40 )
+  if ( sprites[cloudSprite2].x < -20 )
   {
-    sprites[cloudSprite2].x = 100;
+    sprites[cloudSprite2].x = 120;
   }
   
   
@@ -347,12 +349,12 @@ void loop() {
   filterData(150);
 
   
-  s_car.currentSpeed += s_joystickData.b2 ? 0.1f : 0;
+  s_car.currentSpeed += s_joystickData.b2 ? 3.2f : 0;
   s_car.currentAngle += s_joystickData.LX * 0.001f;
   
-  if ( s_car.currentSpeed > 0.8f )
+  if ( s_car.currentSpeed > 25.0f )
   {
-    s_car.currentSpeed = 0.8f;
+    s_car.currentSpeed = 25.0f;
   }
   if(s_car.currentSpeed < 0 )
   {
@@ -361,7 +363,7 @@ void loop() {
   s_car.currentSpeed *= 0.9f;
   s_car.currentAngle *= 0.6f;
   
-  s_car.xPos += s_car.currentAngle * 0.1f * s_car.currentSpeed;
+  s_car.xPos += s_car.currentAngle * 0.02f * s_car.currentSpeed;
   
   s_car.zPos += s_car.currentSpeed;
   
