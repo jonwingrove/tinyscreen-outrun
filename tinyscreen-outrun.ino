@@ -387,11 +387,11 @@ void loop() {
     sprites[smokeSpriteL].enabled = true;
     sprites[smokeSpriteR].enabled = true;
     
-    sprites[smokeSpriteL].x = (48 - 15) - (s_camPos*40) + (s_car.xPos*40);
-    sprites[smokeSpriteL].y = 64-19;
+    sprites[smokeSpriteL].x = 48-7 - (s_camPos*40) + (s_car.xPos*40);
+    sprites[smokeSpriteL].y = 64-13;
     
-    sprites[smokeSpriteR].x = (48 + 2) - (s_camPos*40) + (s_car.xPos*40);
-    sprites[smokeSpriteR].y = 64-19;
+    sprites[smokeSpriteR].x = 48+7 - (s_camPos*40) + (s_car.xPos*40);
+    sprites[smokeSpriteR].y = 64-13;
   }
   else  
   {
