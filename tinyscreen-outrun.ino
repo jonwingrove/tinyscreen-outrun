@@ -4,6 +4,7 @@
 #include "Sprite.h"
 #include "Joystick.h"
 #include "Car.h"
+#include <SD.h>
 #include <avr/pgmspace.h>
 
 #include "Hills.h"
@@ -111,12 +112,15 @@ int cloudSprite2 = 3;
 
 float s_camPos = 0;
 Car s_car;
+bool s_hasSDCard;
 
 void setup() {
   // put your setup code here, to run once:
   Wire.begin();
   Serial.begin(9600);
   display.begin();
+
+  s_hasSDCard = SD.begin(10);
   
   s_car.xPos = 0;
   s_car.zPos = 0;
@@ -194,14 +198,27 @@ void doLine(uint8_t* lineBuffer, int lineIndex)
   }
 }
 
-void processScreen()
+char s_filename[32];
+File s_writeFile;
+void processScreen(int saveScreenshot)
 {
-  display.goTo(0,0);
-  display.startData();
+
+  if (saveScreenshot != -1) 
+  {
+    memset(s_filename,0,32);
+    sprintf(s_filename,"s%d",saveScreenshot);
+    s_writeFile = SD.open(s_filename, FILE_WRITE);
+    s_writeFile.seek(0);
+  }
+  else
+  {  
+    display.goTo(0,0);
+    display.startData();
+  }
   
   uint8_t lineBuffer[96];
   uint8_t alphaColor = ALPHA;
-  
+
   for(int lines = 0; lines < 64; ++lines)
   {
     memset(lineBuffer,0,96);
@@ -241,12 +258,28 @@ void processScreen()
         }
       }    
     }
-    display.writeBuffer(lineBuffer,96);
+
+    if(saveScreenshot != -1)
+    {
+      s_writeFile.write(lineBuffer,96);
+    }
+    else
+    {
+      display.writeBuffer(lineBuffer,96);
+    }
   }
   
-  display.endTransfer();
+  if(saveScreenshot != -1)
+  {
+    s_writeFile.close();
+  }
+  else
+  {
+    display.endTransfer();
+  }
 }
 
+int s_screenshotIndex = 0;
 
 void loop() {
   
@@ -268,12 +301,21 @@ void loop() {
   // put your main code here, to run repeatedly:
   sprites[playerSprite].x = (48 - 10) - (s_camPos*40) + (s_car.xPos*40);
   sprites[playerSprite].y = 49;
-  processScreen();
+
+  if ( s_joystickData.b1 )
+  {
+    processScreen(-1);
+    processScreen(s_screenshotIndex++);
+  }
+  else
+  {
+    processScreen(-1);
+  }
   getJoystick();
   filterData(150);
 
   
-  s_car.currentSpeed += s_joystickData.RY * 0.001f;
+  s_car.currentSpeed += s_joystickData.b2 ? 0.1f : 0;
   s_car.currentAngle += s_joystickData.LX * 0.001f;
   
   if ( s_car.currentSpeed > 0.8f )
