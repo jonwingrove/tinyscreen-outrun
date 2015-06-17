@@ -15,4 +15,5 @@ class SpriteInst
   bool enabled = false;
   bool flipX = false;
   bool flipY = false;
+  int scaleShift = 0;
 };
