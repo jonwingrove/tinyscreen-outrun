@@ -128,6 +128,8 @@ int smokeSpriteL = 8;
 int smokeSpriteR = 9;
 int cloudSprite1 = 2;
 int cloudSprite2 = 3;
+int treeR = 6;
+int treeL = 5;
 
 float s_camPos = 0;
 Car s_car;
@@ -151,6 +153,9 @@ void setup() {
 
   sprites[playerSprite].enabled = true;
   sprites[playerSprite].sprite = &s_CarBack;
+
+  sprites[treeR].sprite = &s_AwesomeTree;
+  sprites[treeL].sprite = &s_AwesomeTree;
   
   sprites[smokeSpriteL].sprite = &s_Smoke;
   sprites[smokeSpriteR].sprite = &s_Smoke;
@@ -203,6 +208,30 @@ void drawRoadSection(uint8_t* lineBuffer, int distance, int playerPos, int width
   memset(lineBuffer+left, col, right-left);
 }
 
+int getDistanceForLineIndex(int lineIndex)
+{
+    int pH = 32 - (lineIndex - 31);
+    // divide by 32... >> 5, divide by 32*32 >> 10
+    int distance = (pH*pH) >> 2;
+    return distance;
+}
+
+int getLineIndexForDistance(float distance)
+{
+  int distanceI = (int)distance;
+  int phSquared = distanceI << 2;
+  int pH = sqrt(phSquared);
+
+  int lineIndex = max(63 - pH,31);
+  return lineIndex;  
+}
+
+int getWidthAt(int lineIndex)
+{
+  int width = 8 + (lineIndex - 31);
+  return width;
+}
+
 void doLine(uint8_t* lineBuffer, int lineIndex)
 {
   if ( lineIndex < 31 )
@@ -212,9 +241,8 @@ void doLine(uint8_t* lineBuffer, int lineIndex)
   else  
   {
     //float pH = 1 - ((float)(lineIndex - 31))/32.0f;
-    int pH = 32 - (lineIndex - 31);
-    // divide by 32... >> 5, divide by 32*32 >> 10
-    int distance = (pH*pH) >> 2;
+    int distance = getDistanceForLineIndex(lineIndex);
+    
     int width = 8 + (lineIndex - 31);
     drawRoadSection(lineBuffer, distance, s_car.zPos, width, s_camPos); 
   }
@@ -246,13 +274,23 @@ void processScreen(int saveScreenshot)
     memset(lineBuffer,0,96);
     doLine(lineBuffer, lines);
     int numSprites = 10;
+    int adjustedHeight;
+    int adjustedWidth;
     for(int index = 0; index < numSprites; ++index)
     {
       if(sprites[index].enabled)
       { 
         const Sprite* spriteType = sprites[index].sprite;
-        int adjustedHeight = spriteType->height << sprites[index].scaleShift;
-        int adjustedWidth = spriteType->width << sprites[index].scaleShift;
+        if ( sprites[index].scaleShift >= 0 )
+        {
+          adjustedHeight = spriteType->height << sprites[index].scaleShift;
+          adjustedWidth = spriteType->width << sprites[index].scaleShift;
+        }
+        else
+        {
+          adjustedHeight = spriteType->height >> -sprites[index].scaleShift;
+          adjustedWidth = spriteType->width >> -sprites[index].scaleShift;
+        }
         int yTop = sprites[index].y - (adjustedHeight >> 1);
         
         int curLine = lines - yTop;
@@ -264,6 +302,9 @@ void processScreen(int saveScreenshot)
           }
           int xLeft = sprites[index].x - (adjustedWidth >> 1);
           int startX = max(-xLeft,0);
+          
+          int remapX;
+          int remapY;
           for(int x = startX; x < adjustedWidth; ++x)
           {
             int tx = x + xLeft;
@@ -273,8 +314,16 @@ void processScreen(int saveScreenshot)
               //int offset = sprites[index].flipX ? (spriteType->width-(x+1))+(curLine*spriteType->width) : x+(curLine*spriteType->width);
               int pixX = sprites[index].flipX ? (adjustedWidth-1)-x : x;
 
-              int remapX = min(pixX >> sprites[index].scaleShift, spriteType->width-1);
-              int remapY = min(curLine >> sprites[index].scaleShift, spriteType->height-1);
+              if ( sprites[index].scaleShift >= 0 )
+              {
+                remapX = min(pixX >> sprites[index].scaleShift, spriteType->width-1);
+                remapY = min(curLine >> sprites[index].scaleShift, spriteType->height-1);
+              }
+              else
+              {
+                remapX = min(pixX << -sprites[index].scaleShift, spriteType->width-1);
+                remapY = min(curLine << -sprites[index].scaleShift, spriteType->height-1);              
+              }
 
               int offset = remapX+(remapY*spriteType->width);
               
@@ -315,6 +364,31 @@ void processScreen(int saveScreenshot)
 
 int s_screenshotIndex = 0;
 
+void SetTreeSprite(int spriteIndex, float trackPos, float sideMult)
+{
+  float distToTree = trackPos - s_car.zPos;
+  int lineForNextTree = getLineIndexForDistance(distToTree);
+  sprites[spriteIndex].enabled = true;
+  int ctr = (48+(40*getRoadPosAt(trackPos)))-(s_camPos*40);
+  sprites[spriteIndex].x = ctr + (getWidthAt(lineForNextTree)*sideMult);
+
+  if ( distToTree > 200 )
+  {
+    sprites[spriteIndex].y = lineForNextTree - 2;
+    sprites[spriteIndex].scaleShift = -2;
+  }
+  else if (distToTree > 100 )
+  {
+    sprites[spriteIndex].y = lineForNextTree - 4;
+    sprites[spriteIndex].scaleShift = -1;
+  }
+  else
+  {
+    sprites[spriteIndex].y = lineForNextTree - 8;
+    sprites[spriteIndex].scaleShift = 0; 
+  }
+}
+
 void loop() {
   
   sprites[cloudSprite1].x--;
@@ -327,7 +401,6 @@ void loop() {
   {
     sprites[cloudSprite2].x = 120;
   }
-  
   
   s_camPos = (s_car.xPos + getRoadPosAt(s_car.zPos + 6)) / 2;
   
@@ -379,6 +452,11 @@ void loop() {
   {
     sprites[playerSprite].sprite = &s_CarBack;    
   }  
+
+  float nextTreePosR = ceil(s_car.zPos/270.0f)*270.0f;
+  float nextTreePosL = ceil(s_car.zPos/330.0f)*330.0f;
+  SetTreeSprite(treeR, nextTreePosR, 1.3f);
+  SetTreeSprite(treeL, nextTreePosL, -1.3f);
   
   float currentPos = getRoadPosAt(s_car.zPos);
   if (( s_car.xPos > currentPos + 1)||( s_car.xPos < currentPos - 1))
