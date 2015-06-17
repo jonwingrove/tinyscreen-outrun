@@ -4,7 +4,10 @@
 #include "Sprite.h"
 #include "Joystick.h"
 #include "Car.h"
+
+#if USE_SD_CARD
 #include <SD.h>
+#endif
 #include <avr/pgmspace.h>
 
 #include "Hills.h"
@@ -141,7 +144,9 @@ void setup() {
   Serial.begin(9600);
   display.begin();
 
+#if USE_SD_CARD
   s_hasSDCard = SD.begin(10);
+#endif
   
   s_car.xPos = 0;
   s_car.zPos = 0;
@@ -248,11 +253,15 @@ void doLine(uint8_t* lineBuffer, int lineIndex)
   }
 }
 
+#if USE_SD_CARD
 char s_filename[32];
 File s_writeFile;
+#endif
+
 void processScreen(int saveScreenshot)
 {
 
+#if USE_SD_CARD
   if (saveScreenshot != -1) 
   {
     memset(s_filename,0,32);
@@ -261,6 +270,7 @@ void processScreen(int saveScreenshot)
     s_writeFile.seek(0);
   }
   else
+#endif
   {  
     display.goTo(0,0);
     display.startData();
@@ -342,21 +352,25 @@ void processScreen(int saveScreenshot)
       }    
     }
 
+#if USE_SD_CARD
     if(saveScreenshot != -1)
     {
       s_writeFile.write(lineBuffer,96);
     }
     else
+#endif
     {
       display.writeBuffer(lineBuffer,96);
     }
   }
-  
+
+#if USE_SD_CARD
   if(saveScreenshot != -1)
   {
     s_writeFile.close();
   }
   else
+#endif
   {
     display.endTransfer();
   }
